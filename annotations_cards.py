@@ -6,10 +6,13 @@ from PIL import Image, ImageEnhance, ImageOps
 
 annotations = []
 
-# Base API URL to fetch cards from all sets
+# base API URL to fetch cards from all sets
 api_url = "https://api.scryfall.com/cards/search?q=game:paper"
 
-# Function to fetch cards and handle pagination
+# function for use in file and directory names
+def sanitize_name(name):
+    return re.sub(r'[<>:"/\\|?*]', '', name)
+
 def fetch_cards(url, max_images=10000):
     image_count = 0  
 
@@ -24,13 +27,12 @@ def fetch_cards(url, max_images=10000):
                 image_response = requests.get(image_url)
                 image_path = os.path.join('data', 'raw', 'images', f"{card['id']}.jpg")
                 
-                # Ensure the directory exists before writing the file
                 os.makedirs(os.path.dirname(image_path), exist_ok=True)
                 
                 with open(image_path, 'wb') as f:
                     f.write(image_response.content)
                 
-                name = card['name']
+                name = sanitize_name(card['name'])
                 mana_color = card['colors'] if 'colors' in card else ['Colorless']
                 rarity = card['rarity']
                 set_name = card['set_name']
@@ -43,15 +45,14 @@ def fetch_cards(url, max_images=10000):
                 
                 annotations.append([image_path, name, mana_color, rarity, set_name, total_mana, generic_mana, mana_count])
                 
-                
+                # Create a folder for the card
                 card_folder = os.path.join('data', 'raw', 'images', name)
                 os.makedirs(card_folder, exist_ok=True)
                 
-        
                 original_image_path = os.path.join(card_folder, f"{card['id']}.jpg")
                 os.rename(image_path, original_image_path)
                 
-                
+            
                 original_image = Image.open(original_image_path)
                 
                 # Create 5 variations of the image
@@ -76,7 +77,7 @@ def fetch_cards(url, max_images=10000):
                 image_count += 1  
                 
                 if image_count >= max_images:
-                    break  
+                    break 
         
         if image_count < max_images:
             url = data.get('next_page')
@@ -85,7 +86,7 @@ def fetch_cards(url, max_images=10000):
 
 fetch_cards(api_url)
 
-
+# Create a DataFrame and save to CSV
 annotations_df = pd.DataFrame(annotations, columns=['image_path', 'name', 'mana_color', 'rarity', 'set_name', 'total_mana', 'generic_mana', 'mana_count'])
 annotations_df.to_csv('data/annotations.csv', index=False)
 
